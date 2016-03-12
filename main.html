@@ -1,0 +1,384 @@
+<!doctype html>
+<head>
+<meta charset="utf-8">
+<script src="RedditShortDemoSurvey.ds" type="text/JavaScript"></script>
+<script src="d3.js" type="text/JavaScript"></script>
+
+<title>Reddit Survey Data Viz</title>
+<style>
+body {
+  font: 10px sans-serif;
+}
+
+.bar rect {
+  fill: #7b6888;
+  shape-rendering: crispEdges;
+}
+
+.bar text {
+  fill: #fff;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+}
+
+
+</style>
+</head>
+
+<body>
+<h1>Top 20 subreddits</h1>
+<div style="position: absolute; top: 10px; left: 960px;">
+<p><H3>Choose age group:</H3></p>
+<select name= "ageSel" id="ageSel" multiple="multiple"  size=7 onChange="ageSelHandler(this)">
+	  <option value="Under 18" selected = "True">Under 18</option>
+	  <option value="18-24" selected = "True">18-24</option>
+	  <option value="25-34" selected = "True">25-34</option>
+	  <option value="35-44" selected = "True">35-44</option>
+	  <option value="45-54" selected = "True">45-54</option>
+	  <option value="55-64" selected = "True">55-64</option>
+	  <option value="65 or Above" selected = "True">65 or Above</option>
+	</select>
+
+</div>
+
+<div style="position: absolute; top: 180px; left: 960px;">
+<p><H3>Choose marrital status:</H3></p>
+	<select name= "marrSel" id="marrSel" multiple="multiple" size=6 onChange="marrSelHandler(this)">
+	  <option value="Engaged" selected = "True">Engaged</option>
+	  <option value="Forever Alone" selected = "True">Forever Alone</option>
+	  <option value="In a relationship" selected = "True">In a relationship</option>
+	  <option value="Married/civil union/domestic partnership" selected = "True">Married/civil union/domestic partnership</option>
+	  <option value="Single" selected = "True">Single</option>
+	  <option value="Widowed" selected = "True">Widowed</option>
+	</select>
+</div>
+
+<div style="position: absolute; top: 350px; left: 960px;">
+	<label><input id="genderCheck" type="checkbox" name="genderCheck" onclick='genderClick(this)'>Gender</label>
+</div>
+
+<div style="position: absolute; top: 370px; left: 960px;">
+	<label><input id="childCheck" type="checkbox" name="childCheck" onclick='childClick(this)'>Have a child under 18</label>
+</div>
+
+<script>
+	var dataArray = d3.csv.parse(csvData);
+	var cutoff = 20;
+	var barWidth = 30;
+
+	var selAge = ["Under 18","18-24", "25-34", "35-44", "45-54", "55-64", "65 or Above"];
+	var selMarr = ["Engaged", "Forever Alone", "In a relationship", "Married/civil union/domestic partnership", "Single", "Widowed" ];
+
+	var subRedditArray = getSubredditHistogram(dataArray,selAge, selMarr);
+
+	var formatCount = d3.format(",.0f");
+	var margin = {top: 30, right: 20, bottom: 100, left: 40};
+	var width = 960 - margin.left - margin.right;
+	var height = 600 - margin.top - margin.bottom;
+
+
+	var color = [{name:"Female", color:"#a05d56"}, {name: "Have a child under 18", color: "#ff8c00"}];
+
+	var svgContainer = d3.select("body").append("svg")
+										.attr("width", width + margin.left + margin.right)
+										.attr("height",height + margin.top + margin.bottom);
+	
+	var axisGroup = svgContainer.append("g")
+							    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+	var legend = svgContainer.selectAll(".legend")
+                    .data(color)
+    				.enter()
+    				.append("g")
+      				.attr("class", "legend")
+      				.attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
+
+  	legend.append("rect")
+      	  .attr("x", width - 18)
+      	  .attr("width", 18)
+      	  .attr("height", 18)
+      	  .style("fill", function(d){ return d.color;});
+
+  	legend.append("text")
+      	  .attr("x", width - 24)
+      	  .attr("y", 9)
+      	  .attr("dy", ".35em")
+      	  .style("text-anchor", "end")
+      	  .text(function(d) { return d.name; });
+
+	drawSubredditHist(subRedditArray, color);
+	
+
+	
+	function ageSelHandler(mySelect)
+	{
+		var selectedAge = [];
+	 	for (var i = 0; i < mySelect.options.length; i++)
+	 	{
+	 		opt = mySelect.options[i]
+			if(opt.selected)
+			{
+				selectedAge.push(opt.value);	
+			}
+		}
+	 	
+	 	selAge = selectedAge;
+		subRedditArray = getSubredditHistogram(dataArray,selAge,selMarr);
+	 	drawSubredditHist(subRedditArray,color);
+	}
+
+	function marrSelHandler(mySelect)
+	{
+		var selectedMarr = [];
+	 	for (var i = 0; i < mySelect.options.length; i++)
+	 	{
+	 		opt = mySelect.options[i]
+			if(opt.selected)
+			{
+				selectedMarr.push(opt.value);	
+			}
+		}
+	 	
+	 	selMarr = selectedMarr;
+	 	subRedditArray = getSubredditHistogram(dataArray,selAge, selMarr);
+	 	drawSubredditHist(subRedditArray, color);
+	}
+
+	function genderClick(myCheck)
+	{
+		
+		document.getElementById("childCheck").checked = false;
+		svgContainer.selectAll(".bar").select("rect#haveChildRect").style("opacity", "0");
+
+		if(svgContainer.selectAll(".bar").select("rect#femaleRect").style("opacity") == 0)
+		{
+			
+			svgContainer.selectAll(".bar").select("rect#femaleRect").style("opacity", "1");
+		}
+		else
+		{
+			svgContainer.selectAll(".bar").select("rect#femaleRect").style("opacity", "0");
+		}		
+
+	}
+
+	function childClick(myCheck)
+	{
+		document.getElementById("genderCheck").checked = false;
+		svgContainer.selectAll(".bar").select("rect#femaleRect").style("opacity", "0");
+
+		if(svgContainer.selectAll(".bar").select("rect#haveChildRect").style("opacity") == 0)
+		{
+			
+			svgContainer.selectAll(".bar").select("rect#haveChildRect").style("opacity", "1");
+		}
+		else
+		{
+			svgContainer.selectAll(".bar").select("rect#haveChildRect").style("opacity", "0");
+		}
+	}
+
+	function updateAxes(subRedditArray)
+	{
+		axisGroup.selectAll(".axis").remove();
+	
+		var xScale = d3.scale.ordinal()	
+				   .domain(subRedditArray.map(function (d) {return d.name; }))
+				   .rangeRoundBands([margin.left, width * subRedditArray.length / cutoff], .4, 0);
+
+		var yScale = d3.scale.linear()	
+					   .domain([0, d3.max(subRedditArray, function(d) { return d.count; })])
+					   .range([height,0]);		
+
+		var xAxis = d3.svg.axis()
+					  .scale(xScale)
+					  .orient("bottom");
+
+		var yAxis = d3.svg.axis()
+					  .scale(yScale)
+					  .orient("left");
+
+		axisGroup.append("g")	
+				 .attr("class", "x axis")
+				 .attr("transform", "translate(0," + height + ")")
+				 .call(xAxis)
+				 .selectAll("text")  
+				 .style("text-anchor", "end")
+				 .attr("dx", "-.8em")
+				 .attr("dy", ".15em")
+				 .attr("transform", "rotate(-65)" );
+		
+		axisGroup.append("g")
+				 .attr("class", "y axis")
+				.attr("transform", "translate(" + margin.left + ",0)")
+				 .call(yAxis);
+		
+		return {x:xScale, y:yScale};
+	}
+		
+	function drawSubredditHist(subRedditArray, color)
+	{
+		var scales = updateAxes(subRedditArray);
+		
+		// Enter
+		var bar = svgContainer.selectAll(".bar")
+							  .data (subRedditArray)
+
+			
+		var barEnter = bar.enter()
+			.append("g")
+			.attr("class", "bar")
+			.attr("transform", function(d, i) { return "translate(" + (margin.left+scales.x(d.name)) + "," + (margin.top+scales.y(d.count)) + ")"; });
+		
+		barEnter.append("rect")
+			.attr("id", "totalRect")
+			.attr("x", 1)
+			.attr("width", barWidth)
+			.attr("height", function(d) { return height - scales.y(d.count); });
+
+		barEnter.append("rect")
+			.attr("id", "femaleRect")
+			.attr("x", 1)
+			.attr("width", barWidth)
+			.attr("height", function(d) { return height - scales.y(d.countf); })
+			.style("fill", color[0].color)
+			.style("opacity", "0");
+
+		barEnter.append("rect")
+			.attr("id", "haveChildRect")
+			.attr("x", 1)
+			.attr("width", barWidth)
+			.attr("height", function(d) { return height - scales.y(d.county); })
+			.style("fill",color[1].color)
+			.style("opacity", "0");
+
+		barEnter.append("text")
+			.attr("dy", ".75em")
+			.attr("y", 6)
+			.attr("x", 4)
+			.attr("text-anchor", "top")
+			.text(function(d) { return formatCount(d.count); });
+			
+		//Update
+		bar.attr("transform", function(d, i) { return "translate(" + (margin.left+scales.x(d.name)) + "," + (margin.top+scales.y(d.count)) + ")"; });
+		bar.select("rect#totalRect").attr("height", function(d) { return height - scales.y(d.count); });
+		bar.select("rect#femaleRect").attr("height", function(d) { return height - scales.y(d.countf); });
+		bar.select("rect#haveChildRect").attr("height", function(d) { return height - scales.y(d.county); });
+		bar.select("text").text(function(d) { return formatCount(d.count); });
+		
+		//Exit
+		bar.exit().remove();
+		
+	}
+
+
+	function getSubredditHistogram(dataArray, selectedAge, selectedMarr)
+	{
+		var bySubreddit = {};
+		for (var i = 0; i < dataArray.length; i++)
+		{
+			var entry = dataArray[i];
+			
+			//skip user whose age or marital status is not selected
+			if(selectedAge.indexOf(entry.age) == -1)
+			{
+				continue;
+			}
+
+			if(selectedMarr.indexOf(entry.marital) == -1)
+			{
+				continue;
+			}
+			
+			//skip user who did not answer
+			var sub = entry.subreddit.toLowerCase();
+			if (sub.length == 0)
+			{
+				continue;
+			}		
+
+            if(sub in bySubreddit)
+            {
+                if (entry.gender == "Female") 
+                {
+                	bySubreddit[sub][0]++;
+                }
+                                
+                else
+                {
+                	bySubreddit[sub][1]++;
+                }
+
+                if (entry.haveChildren == "Yes") 
+                {
+                	bySubreddit[sub][2]++;
+                }
+                                
+                else
+                {
+                	bySubreddit[sub][3]++;
+                }
+                                
+            }
+            else 
+            {
+            	if (entry.gender == "Female")           
+            	
+            	{
+            		 if (entry.haveChildren == "Yes")
+            		 {
+            		 	bySubreddit[sub] = [1,0,1,0];
+            		 }
+            		 else
+            		 {
+            		 	bySubreddit[sub] = [1,0,0,1];
+            		 }
+            		 
+            	}
+                                           
+                else
+                {
+                	if (entry.haveChildren == "Yes")
+            		 {
+            		 	bySubreddit[sub] = [0,1,1,0];
+            		 }
+            		 else
+            		 {
+            		 	bySubreddit[sub] = [0,1,0,1];
+            		 }
+                }
+
+                
+                                            
+            }
+
+           
+		}
+			
+
+        
+       var subRedditArray = [];
+        for (var sub in bySubreddit)
+        {
+            if (bySubreddit.hasOwnProperty(sub)) 
+            {
+                subRedditArray.push({name:sub, count:bySubreddit[sub][0] + bySubreddit[sub][1], countf:bySubreddit[sub][0], county:bySubreddit[sub][2]});
+            }
+        }
+		
+		return subRedditArray.sort(function(a ,b) {return b.count - a.count}).slice(0,cutoff);
+	}
+
+	
+</script>
+</body>
